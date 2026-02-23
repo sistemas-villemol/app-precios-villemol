@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Precios VILLEMOL</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; }
+        #pantalla-inicio { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        .logo-app { max-width: 180px; margin-bottom: 20px; border-radius: 10px; }
+        .boton-principal { background-color: #0078d4; color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 90%; max-width: 350px; cursor: pointer; margin-top: 15px;}
+        #pantalla-camara { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; background: #000; color: white;}
+        #reader { width: 100%; max-width: 500px; }
+        .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer;}
+        #pantalla-resultado { display: none; height: 100%; flex-direction: column; justify-content: space-between; padding: 40px 20px; box-sizing: border-box; background-color: white; }
+        .stock { font-size: 22px; color: #555; font-weight: bold; }
+        .producto { font-size: 32px; color: #333; margin-top: 20px; line-height: 1.2; }
+        .precio { font-size: 80px; color: #2e7d32; font-weight: 900; margin: auto 0; }
+        .sku { font-size: 20px; color: #888; }
+        .boton-volver { background-color: #d32f2f; color: white; border: none; padding: 20px; font-size: 22px; border-radius: 10px; cursor: pointer; }
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #0078d4; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+    <div id="pantalla-inicio">
+        <img src="logo.png" alt="Logo de la Empresa" class="logo-app" onerror="this.style.display='none'">
+        <h2 style="color: #333; margin-bottom: 5px;">Consulta de Precios</h2>
+        
+        <div id="cargando" style="display: flex; flex-direction: column; align-items: center; margin-top: 30px;">
+            <div class="loader"></div>
+            <p style="color: #666;">Sincronizando inventario...</p>
+        </div>
+
+        <p id="mensaje-estado" style="color:#2e7d32; font-weight: bold; margin-top:15px; display:none;">¡Inventario sincronizado!</p>
+        <button id="btn-escanear" class="boton-principal" style="display:none;">📷 Escanear Producto</button>
+    </div>
+
+    <div id="pantalla-camara">
+        <h3>Apunta al código de barras</h3>
+        <p style="font-size: 14px; color: #aaa; margin-top: 0;">Evita el reflejo de la luz en el plástico</p>
+        <div id="reader"></div>
+        <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
+    </div>
+
+    <div id="pantalla-resultado">
+        <div class="stock" id="res-stock">Stock: -</div>
+        <div class="producto" id="res-producto">Nombre del Producto</div>
+        <div class="precio" id="res-precio">$-</div>
+        <div class="sku" id="res-sku">SKU: -</div>
+        <button id="btn-volver" class="boton-volver">Volver a Escanear</button>
+    </div>
+
+    <script>
+        let baseDatos = {};
+        let html5QrcodeScanner = null;
+
+        const urlGoogleDrive = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://drive.google.com/uc?export=download&id=1SO5u19TLyjeSt5WGv497ckY6ggCuOUK2");
+
+        // Función para hacer sonar el BEEP
+        function sonarBeep() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const audioCtx = new AudioContext();
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // Tono
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volumen
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15); // Duración rápida de 150ms
+            } catch(e) {
+                console.log("El audio no está soportado en este navegador.");
+            }
+        }
+
+        window.onload = function() {
+            Papa.parse(urlGoogleDrive, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: function(h) {
+                    return h.trim().replace(/^[\u200B\u200E\u200F\uFEFF]/, "");
+                },
+                complete: function(resultados) {
+                    baseDatos = {};
+                    let contador = 0;
+                    resultados.data.forEach(fila => {
+                        if(fila.CODBARR) {
+                            // Limpiamos espacios extra para que el cruce sea exacto
+                            baseDatos[fila.CODBARR.trim()] = fila;
+                            contador++;
+                        }
+                    });
+                    
+                    document.getElementById('cargando').style.display = "none";
+                    if (contador > 0) {
+                        document.getElementById('mensaje-estado').innerText = "✅ " + contador + " productos listos.";
+                        document.getElementById('mensaje-estado').style.display = "block";
+                        document.getElementById('btn-escanear').style.display = "block";
+                    } else {
+                        document.getElementById('mensaje-estado').innerText = "Error leyendo el archivo. Revisa el CSV.";
+                        document.getElementById('mensaje-estado').style.color = "#d32f2f";
+                        document.getElementById('mensaje-estado').style.display = "block";
+                    }
+                },
+                error: function() {
+                    document.getElementById('cargando').style.display = "none";
+                    document.getElementById('mensaje-estado').innerText = "No se pudo conectar a Google Drive.";
+                    document.getElementById('mensaje-estado').style.color = "#d32f2f";
+                    document.getElementById('mensaje-estado').style.display = "block";
+                }
+            });
+        };
+
+        document.getElementById('btn-escanear').addEventListener('click', function() {
+            document.getElementById('pantalla-inicio').style.display = "none";
+            document.getElementById('pantalla-resultado').style.display = "none";
+            document.getElementById('pantalla-camara').style.display = "flex";
+
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("reader", {
+                    formatsToSupport: [ 
+                        Html5QrcodeSupportedFormats.EAN_13, 
+                        Html5QrcodeSupportedFormats.EAN_8, 
+                        Html5QrcodeSupportedFormats.UPC_A, 
+                        Html5QrcodeSupportedFormats.CODE_128 
+                    ]
+                });
+            }
+            
+            // CONFIGURACIÓN OPTIMIZADA PARA iOS y ANDROID
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                { 
+                    fps: 30, 
+                    // Caja dinámica que se adapta al ancho de la pantalla (ideal para iPhone)
+                    qrbox: function(viewfinderWidth, viewfinderHeight) {
+                        return { width: viewfinderWidth * 0.85, height: 120 };
+                    },
+                    disableFlip: true,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true // Turbocompresor para iOS/Android modernos
+                    }
+                },
+                onScanSuccess
+            ).catch(err => {
+                alert("No se pudo abrir la cámara. Asegúrate de dar permisos.");
+                cerrarCamara();
+            });
+        });
+
+        function onScanSuccess(codigoEscaneado) {
+            sonarBeep(); // <--- AQUÍ SE ACTIVA EL BEEP AL LEER
+            
+            html5QrcodeScanner.stop().then(() => {
+                buscarProducto(codigoEscaneado.trim());
+            });
+        }
+
+        function buscarProducto(codigo) {
+            const producto = baseDatos[codigo];
+            document.getElementById('pantalla-camara').style.display = "none";
+            document.getElementById('pantalla-resultado').style.display = "flex";
+
+            if (producto) {
+                let precioFormato = Number(producto.PRECIO).toLocaleString('es-CL');
+                document.getElementById('res-stock').innerText = "Stock: " + producto.STOCK + " unidades";
+                document.getElementById('res-producto').innerText = producto.PRODUCTO;
+                document.getElementById('res-precio').innerText = "$" + precioFormato;
+                document.getElementById('res-sku').innerText = "SKU: " + producto.SKU;
+            } else {
+                document.getElementById('res-stock').innerText = "";
+                document.getElementById('res-producto').innerText = "Producto no encontrado";
+                document.getElementById('res-precio').innerText = "---";
+                document.getElementById('res-sku').innerText = "Código leído: " + codigo;
+            }
+        }
+
+        document.getElementById('btn-volver').addEventListener('click', function() {
+            document.getElementById('pantalla-resultado').style.display = "none";
+            document.getElementById('pantalla-inicio').style.display = "flex";
+        });
+
+        document.getElementById('btn-cancelar').addEventListener('click', cerrarCamara);
+
+        function cerrarCamara() {
+            if(html5QrcodeScanner) { html5QrcodeScanner.stop().catch(e => console.log(e)); }
+            document.getElementById('pantalla-camara').style.display = "none";
+            document.getElementById('pantalla-inicio').style.display = "flex";
+        }
+    </script>
+</body>
+</html>
