@@ -9,9 +9,11 @@
         #pantalla-inicio { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
         .logo-app { max-width: 180px; margin-bottom: 20px; border-radius: 10px; }
         .boton-principal { background-color: #0078d4; color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 90%; max-width: 350px; cursor: pointer; margin-top: 15px;}
-        #pantalla-camara { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; background: #000; color: white;}
+        
+        #pantalla-camara { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; background: #000; color: white; position: relative;}
         #reader { width: 100%; max-width: 500px; }
-        .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer;}
+        .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer; z-index: 10;}
+        
         #pantalla-resultado { display: none; height: 100%; flex-direction: column; justify-content: space-between; padding: 40px 20px; box-sizing: border-box; background-color: white; }
         .stock { font-size: 22px; color: #555; font-weight: bold; }
         .producto { font-size: 32px; color: #333; margin-top: 20px; line-height: 1.2; }
@@ -40,9 +42,11 @@
     </div>
 
     <div id="pantalla-camara">
-        <h3>Apunta al código de barras</h3>
-        <p style="font-size: 14px; color: #aaa; margin-top: 0;">Evita el reflejo de la luz en el plástico</p>
+        <h3 style="margin-bottom: 5px;">Apunta al código de barras</h3>
+        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Mantén el celular a 15cm de distancia</p>
+        
         <div id="reader"></div>
+        
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
 
@@ -58,9 +62,10 @@
         let baseDatos = {};
         let html5QrcodeScanner = null;
 
+        // TU ENLACE DE GOOGLE DRIVE SEGURO
         const urlGoogleDrive = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://drive.google.com/uc?export=download&id=1SO5u19TLyjeSt5WGv497ckY6ggCuOUK2");
 
-        // Función para hacer sonar el BEEP
+        // Función de sonido
         function sonarBeep() {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -73,14 +78,12 @@
                 gainNode.connect(audioCtx.destination);
                 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // Tono
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volumen
+                osc.frequency.setValueAtTime(1200, audioCtx.currentTime); 
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
                 
                 osc.start();
-                osc.stop(audioCtx.currentTime + 0.15); // Duración rápida de 150ms
-            } catch(e) {
-                console.log("El audio no está soportado en este navegador.");
-            }
+                osc.stop(audioCtx.currentTime + 0.1); 
+            } catch(e) { console.log("Audio no soportado"); }
         }
 
         window.onload = function() {
@@ -96,7 +99,6 @@
                     let contador = 0;
                     resultados.data.forEach(fila => {
                         if(fila.CODBARR) {
-                            // Limpiamos espacios extra para que el cruce sea exacto
                             baseDatos[fila.CODBARR.trim()] = fila;
                             contador++;
                         }
@@ -128,42 +130,65 @@
             document.getElementById('pantalla-camara').style.display = "flex";
 
             if (!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5Qrcode("reader", {
-                    formatsToSupport: [ 
-                        Html5QrcodeSupportedFormats.EAN_13, 
-                        Html5QrcodeSupportedFormats.EAN_8, 
-                        Html5QrcodeSupportedFormats.UPC_A, 
-                        Html5QrcodeSupportedFormats.CODE_128 
-                    ]
-                });
+                // Soportamos más formatos por si acaso (ITF, etc)
+                html5QrcodeScanner = new Html5Qrcode("reader");
             }
             
-            // CONFIGURACIÓN OPTIMIZADA PARA iOS y ANDROID
+            // CONFIGURACIÓN ESTRICTA PARA FORZAR LENTE PRINCIPAL EN IPHONE
+            const configuracionCamara = {
+                facingMode: "environment",
+                // Pedimos resolución HD para obligarlo a usar el lente principal (1x) y no el gran angular (0.5x)
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                advanced: [{ focusMode: "continuous" }]
+            };
+
             html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
+                configuracionCamara, 
                 { 
                     fps: 30, 
-                    // Caja dinámica que se adapta al ancho de la pantalla (ideal para iPhone)
                     qrbox: function(viewfinderWidth, viewfinderHeight) {
-                        return { width: viewfinderWidth * 0.85, height: 120 };
+                        // Caja ancha para códigos de barras largos
+                        return { width: viewfinderWidth * 0.90, height: 150 };
                     },
                     disableFlip: true,
                     experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true // Turbocompresor para iOS/Android modernos
+                        useBarCodeDetectorIfSupported: true 
                     }
                 },
                 onScanSuccess
             ).catch(err => {
-                alert("No se pudo abrir la cámara. Asegúrate de dar permisos.");
-                cerrarCamara();
+                // Si falla el lente principal, intentamos abrir cualquier lente trasero
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 20, qrbox: { width: 250, height: 120 } },
+                    onScanSuccess
+                ).catch(err2 => {
+                    alert("No se pudo abrir la cámara. Revisa los permisos.");
+                    cerrarCamara();
+                });
             });
         });
 
+        // FILTRO ANTI "LECTURAS A MEDIAS"
+        let escaneando = true; // Variable para evitar lecturas dobles muy rápidas
+
         function onScanSuccess(codigoEscaneado) {
-            sonarBeep(); // <--- AQUÍ SE ACTIVA EL BEEP AL LEER
+            let codigoLimpio = codigoEscaneado.trim();
+            
+            // Si el código tiene menos de 8 dígitos, es una lectura fallida por la luz. Lo ignoramos.
+            if (codigoLimpio.length < 8) {
+                return; // No hace nada, sigue buscando
+            }
+
+            if (!escaneando) return; // Si ya atrapó uno válido, se bloquea por un segundo
+            escaneando = false;
+
+            sonarBeep(); 
             
             html5QrcodeScanner.stop().then(() => {
-                buscarProducto(codigoEscaneado.trim());
+                buscarProducto(codigoLimpio);
+                escaneando = true; // Liberamos para la próxima vez
             });
         }
 
@@ -194,7 +219,10 @@
         document.getElementById('btn-cancelar').addEventListener('click', cerrarCamara);
 
         function cerrarCamara() {
-            if(html5QrcodeScanner) { html5QrcodeScanner.stop().catch(e => console.log(e)); }
+            if(html5QrcodeScanner) { 
+                html5QrcodeScanner.stop().catch(e => console.log(e)); 
+                escaneando = true;
+            }
             document.getElementById('pantalla-camara').style.display = "none";
             document.getElementById('pantalla-inicio').style.display = "flex";
         }
