@@ -62,10 +62,8 @@
         let baseDatos = {};
         let html5QrcodeScanner = null;
 
-        // TU ENLACE DE GOOGLE DRIVE SEGURO
         const urlGoogleDrive = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://drive.google.com/uc?export=download&id=1SO5u19TLyjeSt5WGv497ckY6ggCuOUK2");
 
-        // Función de sonido
         function sonarBeep() {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -130,65 +128,45 @@
             document.getElementById('pantalla-camara').style.display = "flex";
 
             if (!html5QrcodeScanner) {
-                // Soportamos más formatos por si acaso (ITF, etc)
                 html5QrcodeScanner = new Html5Qrcode("reader");
             }
             
-            // CONFIGURACIÓN ESTRICTA PARA FORZAR LENTE PRINCIPAL EN IPHONE
-            const configuracionCamara = {
-                facingMode: "environment",
-                // Pedimos resolución HD para obligarlo a usar el lente principal (1x) y no el gran angular (0.5x)
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                advanced: [{ focusMode: "continuous" }]
-            };
-
+            // CONFIGURACIÓN SEGURA QUE SÍ ABRE EN IPHONE
             html5QrcodeScanner.start(
-                configuracionCamara, 
+                { facingMode: "environment" }, 
                 { 
                     fps: 30, 
                     qrbox: function(viewfinderWidth, viewfinderHeight) {
-                        // Caja ancha para códigos de barras largos
                         return { width: viewfinderWidth * 0.90, height: 150 };
                     },
-                    disableFlip: true,
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true 
-                    }
+                    disableFlip: true
                 },
                 onScanSuccess
             ).catch(err => {
-                // Si falla el lente principal, intentamos abrir cualquier lente trasero
-                html5QrcodeScanner.start(
-                    { facingMode: "environment" },
-                    { fps: 20, qrbox: { width: 250, height: 120 } },
-                    onScanSuccess
-                ).catch(err2 => {
-                    alert("No se pudo abrir la cámara. Revisa los permisos.");
-                    cerrarCamara();
-                });
+                alert("No se pudo abrir la cámara. Revisa los permisos.");
+                cerrarCamara();
             });
         });
 
-        // FILTRO ANTI "LECTURAS A MEDIAS"
-        let escaneando = true; // Variable para evitar lecturas dobles muy rápidas
+        // FILTRO ANTI LECTURAS A MEDIAS (Protege contra el brillo y el lente 0.5x)
+        let escaneando = true;
 
         function onScanSuccess(codigoEscaneado) {
             let codigoLimpio = codigoEscaneado.trim();
             
-            // Si el código tiene menos de 8 dígitos, es una lectura fallida por la luz. Lo ignoramos.
+            // Exigimos que el código tenga al menos 8 números para validarlo
             if (codigoLimpio.length < 8) {
-                return; // No hace nada, sigue buscando
+                return; 
             }
 
-            if (!escaneando) return; // Si ya atrapó uno válido, se bloquea por un segundo
+            if (!escaneando) return; 
             escaneando = false;
 
             sonarBeep(); 
             
             html5QrcodeScanner.stop().then(() => {
                 buscarProducto(codigoLimpio);
-                escaneando = true; // Liberamos para la próxima vez
+                escaneando = true; 
             });
         }
 
