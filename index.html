@@ -7,11 +7,20 @@
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; }
         #pantalla-inicio { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
-        .logo-app { max-width: 180px; margin-bottom: 20px; border-radius: 10px; }
-        .boton-principal { background-color: #0078d4; color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 90%; max-width: 350px; cursor: pointer; margin-top: 15px;}
+        .logo-app { max-width: 150px; margin-bottom: 10px; border-radius: 10px; }
         
+        .boton-principal { background-color: #0078d4; color: white; border: none; padding: 18px 30px; font-size: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 320px; cursor: pointer; margin-top: 15px;}
+        .boton-secundario { background-color: #fff; color: #0078d4; border: 2px solid #0078d4; padding: 12px 20px; font-size: 16px; border-radius: 10px; width: 100%; max-width: 320px; cursor: pointer; margin-top: 15px;}
+        
+        .caja-buscador { margin-top: 25px; padding: 15px; background: #fff; border-radius: 10px; width: 100%; max-width: 320px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .input-manual { width: 100%; padding: 12px; font-size: 18px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; text-align: center; }
+        .btn-buscar-manual { background-color: #2e7d32; color: white; border: none; padding: 12px; width: 100%; font-size: 18px; border-radius: 5px; margin-top: 10px; cursor: pointer; }
+
         #pantalla-camara { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; background: #000; color: white; position: relative;}
         #reader { width: 100%; max-width: 500px; }
+        /* Pequeño truco visual para dar sensación de zoom en la caja */
+        #reader video { object-fit: cover; } 
+        
         .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer; z-index: 10;}
         
         #pantalla-resultado { display: none; height: 100%; flex-direction: column; justify-content: space-between; padding: 40px 20px; box-sizing: border-box; background-color: white; }
@@ -19,8 +28,9 @@
         .producto { font-size: 32px; color: #333; margin-top: 20px; line-height: 1.2; }
         .precio { font-size: 80px; color: #2e7d32; font-weight: 900; margin: auto 0; }
         .sku { font-size: 20px; color: #888; }
-        .boton-volver { background-color: #d32f2f; color: white; border: none; padding: 20px; font-size: 22px; border-radius: 10px; cursor: pointer; }
-        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #0078d4; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        .boton-volver { background-color: #0078d4; color: white; border: none; padding: 20px; font-size: 22px; border-radius: 10px; cursor: pointer; }
+        
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #0078d4; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px; display: none; margin-left: auto; margin-right: auto;}
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -29,40 +39,45 @@
 <body>
 
     <div id="pantalla-inicio">
-        <img src="logo.png" alt="Logo de la Empresa" class="logo-app" onerror="this.style.display='none'">
-        <h2 style="color: #333; margin-bottom: 5px;">Consulta de Precios</h2>
+        <img src="logo.png" alt="Logo" class="logo-app" onerror="this.style.display='none'">
+        <h2 style="color: #333; margin-top: 0; margin-bottom: 5px;">VILLEMOL Precios</h2>
         
-        <div id="cargando" style="display: flex; flex-direction: column; align-items: center; margin-top: 30px;">
-            <div class="loader"></div>
-            <p style="color: #666;">Sincronizando inventario...</p>
+        <p id="mensaje-estado" style="color:#666; font-size: 14px; margin-top:5px;">Verificando base de datos...</p>
+        <div class="loader" id="indicador-carga"></div>
+
+        <button id="btn-escanear" class="boton-principal" style="display:none;">📷 Usar Cámara</button>
+        
+        <div class="caja-buscador" id="caja-buscador" style="display:none;">
+            <p style="margin: 0 0 10px 0; font-size: 14px; color: #555;">¿No lee el código?</p>
+            <input type="number" id="input-codigo" class="input-manual" placeholder="Ingresa el código aquí">
+            <button id="btn-buscar-manual" class="btn-buscar-manual">🔍 Buscar Manualmente</button>
         </div>
 
-        <p id="mensaje-estado" style="color:#2e7d32; font-weight: bold; margin-top:15px; display:none;">¡Inventario sincronizado!</p>
-        <button id="btn-escanear" class="boton-principal" style="display:none;">📷 Escanear Producto</button>
+        <button id="btn-sincronizar" class="boton-secundario" style="display:none;">🔄 Actualizar desde la Nube</button>
     </div>
 
     <div id="pantalla-camara">
-        <h3 style="margin-bottom: 5px;">Apunta al código de barras</h3>
-        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Mantén el celular a 15cm de distancia</p>
-        
+        <h3 style="margin-bottom: 5px;">Apunta al código</h3>
+        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Enfoque de alta calidad activado</p>
         <div id="reader"></div>
-        
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
 
     <div id="pantalla-resultado">
         <div class="stock" id="res-stock">Stock: -</div>
-        <div class="producto" id="res-producto">Nombre del Producto</div>
+        <div class="producto" id="res-producto">Nombre</div>
         <div class="precio" id="res-precio">$-</div>
         <div class="sku" id="res-sku">SKU: -</div>
-        <button id="btn-volver" class="boton-volver">Volver a Escanear</button>
+        <button id="btn-volver" class="boton-volver">Volver al Inicio</button>
     </div>
 
     <script>
         let baseDatos = {};
         let html5QrcodeScanner = null;
+        let escaneando = true;
 
-        const urlGoogleDrive = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://drive.google.com/uc?export=download&id=1SO5u19TLyjeSt5WGv497ckY6ggCuOUK2");
+        // --- CONEXIÓN DIRECTA A GOOGLE SHEETS ---
+        const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxJw4Cmy8bQTnfV6DfW8gQt-zX_anV6O82j1yagz1QxsluIIoAPMMwcjDTEyIy2Q/pub?output=csv";
 
         function sonarBeep() {
             try {
@@ -71,27 +86,37 @@
                 const audioCtx = new AudioContext();
                 const osc = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
-                
                 osc.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
-                
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(1200, audioCtx.currentTime); 
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
-                
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.1); 
-            } catch(e) { console.log("Audio no soportado"); }
+            } catch(e) {}
         }
 
         window.onload = function() {
-            Papa.parse(urlGoogleDrive, {
+            const datosGuardados = localStorage.getItem('villemol_bd');
+            if (datosGuardados) {
+                baseDatos = JSON.parse(datosGuardados);
+                let cantidad = Object.keys(baseDatos).length;
+                mostrarInterfazLista(cantidad, "Cargado desde la memoria al instante ⚡");
+            } else {
+                descargarDeLaNube();
+            }
+        };
+
+        function descargarDeLaNube() {
+            document.getElementById('indicador-carga').style.display = "block";
+            document.getElementById('mensaje-estado').innerText = "Descargando inventario de Google Sheets...";
+            ocultarBotones();
+
+            Papa.parse(urlGoogleSheets, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
-                transformHeader: function(h) {
-                    return h.trim().replace(/^[\u200B\u200E\u200F\uFEFF]/, "");
-                },
+                transformHeader: function(h) { return h.trim().replace(/^[\u200B\u200E\u200F\uFEFF]/, ""); },
                 complete: function(resultados) {
                     baseDatos = {};
                     let contador = 0;
@@ -102,26 +127,52 @@
                         }
                     });
                     
-                    document.getElementById('cargando').style.display = "none";
                     if (contador > 0) {
-                        document.getElementById('mensaje-estado').innerText = "✅ " + contador + " productos listos.";
-                        document.getElementById('mensaje-estado').style.display = "block";
-                        document.getElementById('btn-escanear').style.display = "block";
+                        localStorage.setItem('villemol_bd', JSON.stringify(baseDatos));
+                        document.getElementById('indicador-carga').style.display = "none";
+                        mostrarInterfazLista(contador, "✅ Base de datos actualizada con éxito.");
                     } else {
-                        document.getElementById('mensaje-estado').innerText = "Error leyendo el archivo. Revisa el CSV.";
-                        document.getElementById('mensaje-estado').style.color = "#d32f2f";
-                        document.getElementById('mensaje-estado').style.display = "block";
+                        mostrarError("La hoja de cálculo está vacía o hay un error en las columnas.");
                     }
                 },
                 error: function() {
-                    document.getElementById('cargando').style.display = "none";
-                    document.getElementById('mensaje-estado').innerText = "No se pudo conectar a Google Drive.";
-                    document.getElementById('mensaje-estado').style.color = "#d32f2f";
-                    document.getElementById('mensaje-estado').style.display = "block";
+                    mostrarError("Fallo la conexión. Revisa el enlace de Google Sheets.");
                 }
             });
-        };
+        }
 
+        function mostrarInterfazLista(cantidad, mensaje) {
+            document.getElementById('mensaje-estado').innerText = mensaje + " (" + cantidad + " productos)";
+            document.getElementById('mensaje-estado').style.color = "#2e7d32";
+            document.getElementById('btn-escanear').style.display = "block";
+            document.getElementById('caja-buscador').style.display = "block";
+            document.getElementById('btn-sincronizar').style.display = "block";
+        }
+
+        function ocultarBotones() {
+            document.getElementById('btn-escanear').style.display = "none";
+            document.getElementById('caja-buscador').style.display = "none";
+            document.getElementById('btn-sincronizar').style.display = "none";
+        }
+
+        function mostrarError(mensaje) {
+            document.getElementById('indicador-carga').style.display = "none";
+            document.getElementById('mensaje-estado').innerText = mensaje;
+            document.getElementById('mensaje-estado').style.color = "#d32f2f";
+            document.getElementById('btn-sincronizar').style.display = "block";
+        }
+
+        document.getElementById('btn-sincronizar').addEventListener('click', descargarDeLaNube);
+
+        document.getElementById('btn-buscar-manual').addEventListener('click', function() {
+            const codigo = document.getElementById('input-codigo').value.trim();
+            if(codigo !== "") {
+                buscarProducto(codigo);
+                document.getElementById('input-codigo').value = ""; 
+            }
+        });
+
+        // --- APERTURA DE CÁMARA CON "ESTRATEGIA DE 3 INTENTOS" PARA IOS ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -130,35 +181,52 @@
             if (!html5QrcodeScanner) {
                 html5QrcodeScanner = new Html5Qrcode("reader");
             }
-            
-            // CONFIGURACIÓN SEGURA QUE SÍ ABRE EN IPHONE
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
-                { 
-                    fps: 30, 
-                    qrbox: function(viewfinderWidth, viewfinderHeight) {
-                        return { width: viewfinderWidth * 0.90, height: 150 };
-                    },
-                    disableFlip: true
-                },
-                onScanSuccess
-            ).catch(err => {
-                alert("No se pudo abrir la cámara. Revisa los permisos.");
-                cerrarCamara();
+
+            const configLector = { 
+                fps: 15, 
+                qrbox: function(vw, vh) { return { width: vw * 0.85, height: 130 }; }, // Caja un poco más alta
+                disableFlip: true
+            };
+
+            // INTENTO 1: Pedimos Alta Definición (1080p) + Zoom de 1.5x
+            const configConZoom = {
+                facingMode: "environment",
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                advanced: [{ zoom: 1.5 }]
+            };
+
+            // INTENTO 2: Pedimos Alta Definición sin Zoom (Por si iOS bloquea el zoom)
+            const configAltaCalidad = {
+                facingMode: "environment",
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+            };
+
+            // INTENTO 3: Básico y seguro (El que ya sabemos que funciona siempre)
+            const configBasico = { facingMode: "environment" };
+
+            // Ejecución en cascada:
+            html5QrcodeScanner.start(configConZoom, configLector, onScanSuccess)
+            .catch(err => {
+                console.log("El zoom falló, intentando Alta Definición sin zoom...");
+                html5QrcodeScanner.start(configAltaCalidad, configLector, onScanSuccess)
+                .catch(err2 => {
+                    console.log("Alta definición falló, usando configuración básica...");
+                    html5QrcodeScanner.start(configBasico, configLector, onScanSuccess)
+                    .catch(err3 => {
+                        alert("No se pudo abrir la cámara. Revisa los permisos.");
+                        cerrarCamara();
+                    });
+                });
             });
         });
-
-        // FILTRO ANTI LECTURAS A MEDIAS (Protege contra el brillo y el lente 0.5x)
-        let escaneando = true;
 
         function onScanSuccess(codigoEscaneado) {
             let codigoLimpio = codigoEscaneado.trim();
             
-            // Exigimos que el código tenga al menos 8 números para validarlo
-            if (codigoLimpio.length < 8) {
-                return; 
-            }
-
+            if (codigoLimpio.length < 7) return; 
+            
             if (!escaneando) return; 
             escaneando = false;
 
@@ -172,6 +240,7 @@
 
         function buscarProducto(codigo) {
             const producto = baseDatos[codigo];
+            document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-camara').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "flex";
 
@@ -185,7 +254,7 @@
                 document.getElementById('res-stock').innerText = "";
                 document.getElementById('res-producto').innerText = "Producto no encontrado";
                 document.getElementById('res-precio').innerText = "---";
-                document.getElementById('res-sku').innerText = "Código leído: " + codigo;
+                document.getElementById('res-sku').innerText = "Código: " + codigo;
             }
         }
 
