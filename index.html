@@ -56,7 +56,7 @@
 
     <div id="pantalla-camara">
         <h3 style="margin-bottom: 5px;">Apunta al código</h3>
-        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Mantén el código enfocado</p>
+        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Lectura en 360° activada</p>
         <div id="reader"></div>
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
@@ -170,7 +170,7 @@
             }
         });
 
-        // --- APERTURA DE CÁMARA A PRUEBA DE FALLOS ---
+        // --- APERTURA DE CÁMARA CON LECTURA 360° Y ACELERACIÓN NATIVA ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -181,20 +181,19 @@
             }
 
             const configLector = { 
-                fps: 15, 
-                qrbox: function(vw, vh) { return { width: vw * 0.85, height: 130 }; },
-                disableFlip: true
+                fps: 20, // Un poco más rápido
+                qrbox: function(vw, vh) { return { width: vw * 0.90, height: 250 }; }, // Caja más grande para que quepan códigos cruzados o en diagonal
+                disableFlip: false, // ¡MAGIA 1! Permitir que lea al revés o de cabeza
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // ¡MAGIA 2! Usa el motor nativo de Apple/Google para leer súper rápido
+                }
             };
 
-            // Intentamos abrir la cámara trasera sin exigir resoluciones locas
             html5QrcodeScanner.start(
                 { facingMode: "environment" }, 
                 configLector,
                 onScanSuccess
             ).catch(err => {
-                console.log("Fallo cámara trasera. Intentando cámara genérica...", err);
-                
-                // Si falla, intentamos abrir CUALQUIER cámara disponible (Plan B)
                 html5QrcodeScanner.start(
                     true, 
                     configLector,
