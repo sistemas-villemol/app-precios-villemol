@@ -21,7 +21,6 @@
         
         .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer; z-index: 10;}
         
-        /* DISEÑO DE RESULTADOS CON BOTONES ELEVADOS */
         #pantalla-resultado { display: none; height: 100%; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background-color: white; }
         .stock { font-size: 22px; color: #555; font-weight: bold; margin-bottom: 10px; }
         .producto { font-size: 32px; color: #333; margin-top: 10px; line-height: 1.2; }
@@ -60,7 +59,7 @@
 
     <div id="pantalla-camara">
         <h3 style="margin-bottom: 5px;">Apunta al código</h3>
-        <p id="texto-camara" style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Optimizando lente...</p>
+        <p id="texto-camara" style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Iniciando cámara...</p>
         <div id="reader"></div>
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
@@ -84,7 +83,6 @@
 
         const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxJw4Cmy8bQTnfV6DfW8gQt-zX_anV6O82j1yagz1QxsluIIoAPMMwcjDTEyIy2Q/pub?output=csv";
 
-        // --- DETECTOR DE IPHONE (iOS) ---
         function esDispositivoIOS() {
             return [
               'iPad Simulator', 'iPhone Simulator', 'iPod Simulator',
@@ -187,7 +185,7 @@
             }
         });
 
-        // --- APERTURA DE CÁMARA BIFURCADA (iOS vs ANDROID) ---
+        // --- APERTURA DE CÁMARA ESTABLE 100% ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -203,35 +201,22 @@
                 disableFlip: false 
             };
             
-            let configCamara = {};
-
-            // APLICAMOS LA LÓGICA SEGÚN EL TELÉFONO
             if (esDispositivoIOS()) {
-                // CONFIGURACIÓN PARA iPHONE (Segura, sin congelamientos)
-                document.getElementById('texto-camara').innerText = "Modo iPhone activado (Enfoque seguro)";
+                document.getElementById('texto-camara').innerText = "Modo iOS activado";
                 configLector.experimentalFeatures = { useBarCodeDetectorIfSupported: false };
-                configCamara = { facingMode: "environment", width: { ideal: 1280 } }; 
             } else {
-                // CONFIGURACIÓN PARA ANDROID (Turbo, fuerza lente principal)
-                document.getElementById('texto-camara').innerText = "Modo Android activado (Alta resolución)";
+                document.getElementById('texto-camara').innerText = "Modo Android activado";
                 configLector.experimentalFeatures = { useBarCodeDetectorIfSupported: true };
-                configCamara = { facingMode: "environment", width: { ideal: 1920 } }; 
             }
 
+            // LA SOLUCIÓN DEFINITIVA: Solo pedir "cámara trasera" sin forzar resoluciones
             html5QrcodeScanner.start(
-                configCamara, 
+                { facingMode: "environment" }, 
                 configLector,
                 onScanSuccess
             ).catch(err => {
-                // Plan B por si acaso
-                html5QrcodeScanner.start(
-                    { facingMode: "environment" }, 
-                    configLector,
-                    onScanSuccess
-                ).catch(err2 => {
-                    alert("No se pudo acceder a la cámara. Asegúrate de darle permisos.");
-                    cerrarCamara();
-                });
+                alert("Hubo un error al abrir la cámara. Asegúrate de dar permisos.");
+                cerrarCamara();
             });
         });
 
