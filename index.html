@@ -2,10 +2,18 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consulta de Precios VILLEMOL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VILLEMOL Precios</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0078d4">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VILLEMOL">
+    <link rel="apple-touch-icon" href="logo.png">
+
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; /* Evita tirones al hacer scroll */ overscroll-behavior-y: contain; }
         #pantalla-inicio { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
         .logo-app { max-width: 150px; margin-bottom: 10px; border-radius: 10px; }
         
@@ -185,7 +193,6 @@
             }
         });
 
-        // --- APERTURA DE CÁMARA ESTABLE 100% ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -209,7 +216,6 @@
                 configLector.experimentalFeatures = { useBarCodeDetectorIfSupported: true };
             }
 
-            // LA SOLUCIÓN DEFINITIVA: Solo pedir "cámara trasera" sin forzar resoluciones
             html5QrcodeScanner.start(
                 { facingMode: "environment" }, 
                 configLector,
@@ -279,6 +285,17 @@
             if(html5QrcodeScanner) { 
                 html5QrcodeScanner.stop().catch(e => console.log("Cámara detenida.")); 
             }
+        }
+
+        // --- REGISTRO DEL SERVICE WORKER PARA PWA ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    console.log('Modo App Instalable (PWA) activado.', reg);
+                }).catch(err => {
+                    console.log('Error al activar Modo App', err);
+                });
+            });
         }
     </script>
 </body>
