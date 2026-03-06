@@ -18,8 +18,6 @@
 
         #pantalla-camara { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; background: #000; color: white; position: relative;}
         #reader { width: 100%; max-width: 500px; }
-        /* Pequeño truco visual para dar sensación de zoom en la caja */
-        #reader video { object-fit: cover; } 
         
         .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer; z-index: 10;}
         
@@ -58,7 +56,7 @@
 
     <div id="pantalla-camara">
         <h3 style="margin-bottom: 5px;">Apunta al código</h3>
-        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Enfoque de alta calidad activado</p>
+        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Enfoque optimizado</p>
         <div id="reader"></div>
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
@@ -76,7 +74,7 @@
         let html5QrcodeScanner = null;
         let escaneando = true;
 
-        // --- CONEXIÓN DIRECTA A GOOGLE SHEETS ---
+        // CONEXIÓN A GOOGLE SHEETS (Intacta)
         const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxJw4Cmy8bQTnfV6DfW8gQt-zX_anV6O82j1yagz1QxsluIIoAPMMwcjDTEyIy2Q/pub?output=csv";
 
         function sonarBeep() {
@@ -172,7 +170,7 @@
             }
         });
 
-        // --- APERTURA DE CÁMARA CON "ESTRATEGIA DE 3 INTENTOS" PARA IOS ---
+        // --- APERTURA DE CÁMARA ESTABLE (Sin forzar bloqueos) ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -182,43 +180,22 @@
                 html5QrcodeScanner = new Html5Qrcode("reader");
             }
 
-            const configLector = { 
-                fps: 15, 
-                qrbox: function(vw, vh) { return { width: vw * 0.85, height: 130 }; }, // Caja un poco más alta
-                disableFlip: true
-            };
-
-            // INTENTO 1: Pedimos Alta Definición (1080p) + Zoom de 1.5x
-            const configConZoom = {
-                facingMode: "environment",
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                advanced: [{ zoom: 1.5 }]
-            };
-
-            // INTENTO 2: Pedimos Alta Definición sin Zoom (Por si iOS bloquea el zoom)
-            const configAltaCalidad = {
-                facingMode: "environment",
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            };
-
-            // INTENTO 3: Básico y seguro (El que ya sabemos que funciona siempre)
-            const configBasico = { facingMode: "environment" };
-
-            // Ejecución en cascada:
-            html5QrcodeScanner.start(configConZoom, configLector, onScanSuccess)
-            .catch(err => {
-                console.log("El zoom falló, intentando Alta Definición sin zoom...");
-                html5QrcodeScanner.start(configAltaCalidad, configLector, onScanSuccess)
-                .catch(err2 => {
-                    console.log("Alta definición falló, usando configuración básica...");
-                    html5QrcodeScanner.start(configBasico, configLector, onScanSuccess)
-                    .catch(err3 => {
-                        alert("No se pudo abrir la cámara. Revisa los permisos.");
-                        cerrarCamara();
-                    });
-                });
+            // Pedimos Alta Resolución de forma limpia y directa
+            html5QrcodeScanner.start(
+                { 
+                    facingMode: "environment",
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }, 
+                { 
+                    fps: 15, 
+                    qrbox: function(vw, vh) { return { width: vw * 0.85, height: 130 }; },
+                    disableFlip: true
+                },
+                onScanSuccess
+            ).catch(err => {
+                alert("No se pudo abrir la cámara. Revisa los permisos.");
+                cerrarCamara();
             });
         });
 
@@ -232,9 +209,14 @@
 
             sonarBeep(); 
             
+            // Detenemos la cámara y buscamos el producto
             html5QrcodeScanner.stop().then(() => {
                 buscarProducto(codigoLimpio);
                 escaneando = true; 
+            }).catch(e => {
+                // Si falla el stop, forzamos la búsqueda igual
+                buscarProducto(codigoLimpio);
+                escaneando = true;
             });
         }
 
@@ -252,7 +234,7 @@
                 document.getElementById('res-sku').innerText = "SKU: " + producto.SKU;
             } else {
                 document.getElementById('res-stock').innerText = "";
-                document.getElementById('res-producto').innerText = "Producto no encontrado";
+                document.getElementById('res-producto').innerText = "No encontrado";
                 document.getElementById('res-precio').innerText = "---";
                 document.getElementById('res-sku').innerText = "Código: " + codigo;
             }
@@ -265,13 +247,17 @@
 
         document.getElementById('btn-cancelar').addEventListener('click', cerrarCamara);
 
+        // --- BOTÓN CANCELAR BLINDADO ---
         function cerrarCamara() {
-            if(html5QrcodeScanner) { 
-                html5QrcodeScanner.stop().catch(e => console.log(e)); 
-                escaneando = true;
-            }
+            // 1. Ocultamos la pantalla visualmente de inmediato (no se queda pegado)
             document.getElementById('pantalla-camara').style.display = "none";
             document.getElementById('pantalla-inicio').style.display = "flex";
+            escaneando = true;
+
+            // 2. Apagamos la cámara por detrás en silencio
+            if(html5QrcodeScanner) { 
+                html5QrcodeScanner.stop().catch(e => console.log("Cámara ya estaba detenida.")); 
+            }
         }
     </script>
 </body>
