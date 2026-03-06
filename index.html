@@ -21,7 +21,7 @@
         
         .boton-cancelar { background-color: #555; margin-top: 20px; padding: 15px 30px; border: none; color: white; border-radius: 5px; font-size: 18px; cursor: pointer; z-index: 10;}
         
-        /* NUEVO DISEÑO DE RESULTADOS CENTRADO Y CON DOS BOTONES */
+        /* DISEÑO DE RESULTADOS CON BOTONES ELEVADOS */
         #pantalla-resultado { display: none; height: 100%; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background-color: white; }
         .stock { font-size: 22px; color: #555; font-weight: bold; margin-bottom: 10px; }
         .producto { font-size: 32px; color: #333; margin-top: 10px; line-height: 1.2; }
@@ -60,7 +60,7 @@
 
     <div id="pantalla-camara">
         <h3 style="margin-bottom: 5px;">Apunta al código</h3>
-        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Lector estable activado</p>
+        <p id="texto-camara" style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Optimizando lente...</p>
         <div id="reader"></div>
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
@@ -82,8 +82,17 @@
         let html5QrcodeScanner = null;
         let escaneando = true;
 
-        // CONEXIÓN A GOOGLE SHEETS
         const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxJw4Cmy8bQTnfV6DfW8gQt-zX_anV6O82j1yagz1QxsluIIoAPMMwcjDTEyIy2Q/pub?output=csv";
+
+        // --- DETECTOR DE IPHONE (iOS) ---
+        function esDispositivoIOS() {
+            return [
+              'iPad Simulator', 'iPhone Simulator', 'iPod Simulator',
+              'iPad', 'iPhone', 'iPod'
+            ].includes(navigator.platform)
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document) 
+            || /iPad|iPhone|iPod/.test(navigator.userAgent);
+        }
 
         function sonarBeep() {
             try {
@@ -178,7 +187,7 @@
             }
         });
 
-        // --- APERTURA DE CÁMARA ESTABLE (Sin fallos en iOS y forzando lente normal en Android) ---
+        // --- APERTURA DE CÁMARA BIFURCADA (iOS vs ANDROID) ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -188,25 +197,39 @@
                 html5QrcodeScanner = new Html5Qrcode("reader");
             }
 
-            const configLector = { 
+            let configLector = { 
                 fps: 15, 
-                qrbox: function(vw, vh) { return { width: vw * 0.85, height: 200 }; }, // Caja alta para leer en ángulos
-                disableFlip: false // Permite leer códigos invertidos
+                qrbox: function(vw, vh) { return { width: vw * 0.85, height: 200 }; }, 
+                disableFlip: false 
             };
+            
+            let configCamara = {};
 
-            // Intentamos obligar a Android a usar el lente principal pidiendo resolución ancha
+            // APLICAMOS LA LÓGICA SEGÚN EL TELÉFONO
+            if (esDispositivoIOS()) {
+                // CONFIGURACIÓN PARA iPHONE (Segura, sin congelamientos)
+                document.getElementById('texto-camara').innerText = "Modo iPhone activado (Enfoque seguro)";
+                configLector.experimentalFeatures = { useBarCodeDetectorIfSupported: false };
+                configCamara = { facingMode: "environment", width: { ideal: 1280 } }; 
+            } else {
+                // CONFIGURACIÓN PARA ANDROID (Turbo, fuerza lente principal)
+                document.getElementById('texto-camara').innerText = "Modo Android activado (Alta resolución)";
+                configLector.experimentalFeatures = { useBarCodeDetectorIfSupported: true };
+                configCamara = { facingMode: "environment", width: { ideal: 1920 } }; 
+            }
+
             html5QrcodeScanner.start(
-                { facingMode: "environment", width: { ideal: 1280 } }, 
+                configCamara, 
                 configLector,
                 onScanSuccess
             ).catch(err => {
-                // Si lo anterior falla (iOS a veces es estricto), usamos la configuración más básica y segura
+                // Plan B por si acaso
                 html5QrcodeScanner.start(
                     { facingMode: "environment" }, 
                     configLector,
                     onScanSuccess
                 ).catch(err2 => {
-                    alert("No se pudo acceder a la cámara. Asegúrate de darle permisos al navegador.");
+                    alert("No se pudo acceder a la cámara. Asegúrate de darle permisos.");
                     cerrarCamara();
                 });
             });
@@ -251,14 +274,12 @@
             }
         }
 
-        // --- NUEVOS BOTONES DE RESULTADO ---
         document.getElementById('btn-volver').addEventListener('click', function() {
             document.getElementById('pantalla-resultado').style.display = "none";
             document.getElementById('pantalla-inicio').style.display = "flex";
         });
 
         document.getElementById('btn-nuevo').addEventListener('click', function() {
-            // Regresamos directamente a la cámara para escanear rápido
             document.getElementById('pantalla-resultado').style.display = "none";
             document.getElementById('btn-escanear').click(); 
         });
