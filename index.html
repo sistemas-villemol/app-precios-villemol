@@ -56,7 +56,7 @@
 
     <div id="pantalla-camara">
         <h3 style="margin-bottom: 5px;">Apunta al código</h3>
-        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Enfoque optimizado</p>
+        <p style="font-size: 14px; color: #ccc; margin-top: 0; padding: 0 20px;">Mantén el código enfocado</p>
         <div id="reader"></div>
         <button id="btn-cancelar" class="boton-cancelar">Cancelar</button>
     </div>
@@ -74,7 +74,7 @@
         let html5QrcodeScanner = null;
         let escaneando = true;
 
-        // CONEXIÓN A GOOGLE SHEETS (Intacta)
+        // CONEXIÓN A GOOGLE SHEETS
         const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxJw4Cmy8bQTnfV6DfW8gQt-zX_anV6O82j1yagz1QxsluIIoAPMMwcjDTEyIy2Q/pub?output=csv";
 
         function sonarBeep() {
@@ -170,7 +170,7 @@
             }
         });
 
-        // --- APERTURA DE CÁMARA ESTABLE (Sin forzar bloqueos) ---
+        // --- APERTURA DE CÁMARA A PRUEBA DE FALLOS ---
         document.getElementById('btn-escanear').addEventListener('click', function() {
             document.getElementById('pantalla-inicio').style.display = "none";
             document.getElementById('pantalla-resultado').style.display = "none";
@@ -180,22 +180,29 @@
                 html5QrcodeScanner = new Html5Qrcode("reader");
             }
 
-            // Pedimos Alta Resolución de forma limpia y directa
+            const configLector = { 
+                fps: 15, 
+                qrbox: function(vw, vh) { return { width: vw * 0.85, height: 130 }; },
+                disableFlip: true
+            };
+
+            // Intentamos abrir la cámara trasera sin exigir resoluciones locas
             html5QrcodeScanner.start(
-                { 
-                    facingMode: "environment",
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                }, 
-                { 
-                    fps: 15, 
-                    qrbox: function(vw, vh) { return { width: vw * 0.85, height: 130 }; },
-                    disableFlip: true
-                },
+                { facingMode: "environment" }, 
+                configLector,
                 onScanSuccess
             ).catch(err => {
-                alert("No se pudo abrir la cámara. Revisa los permisos.");
-                cerrarCamara();
+                console.log("Fallo cámara trasera. Intentando cámara genérica...", err);
+                
+                // Si falla, intentamos abrir CUALQUIER cámara disponible (Plan B)
+                html5QrcodeScanner.start(
+                    true, 
+                    configLector,
+                    onScanSuccess
+                ).catch(err2 => {
+                    alert("No se pudo acceder a la cámara. Asegúrate de darle permisos al navegador.");
+                    cerrarCamara();
+                });
             });
         });
 
@@ -209,12 +216,10 @@
 
             sonarBeep(); 
             
-            // Detenemos la cámara y buscamos el producto
             html5QrcodeScanner.stop().then(() => {
                 buscarProducto(codigoLimpio);
                 escaneando = true; 
             }).catch(e => {
-                // Si falla el stop, forzamos la búsqueda igual
                 buscarProducto(codigoLimpio);
                 escaneando = true;
             });
@@ -247,16 +252,13 @@
 
         document.getElementById('btn-cancelar').addEventListener('click', cerrarCamara);
 
-        // --- BOTÓN CANCELAR BLINDADO ---
         function cerrarCamara() {
-            // 1. Ocultamos la pantalla visualmente de inmediato (no se queda pegado)
             document.getElementById('pantalla-camara').style.display = "none";
             document.getElementById('pantalla-inicio').style.display = "flex";
             escaneando = true;
 
-            // 2. Apagamos la cámara por detrás en silencio
             if(html5QrcodeScanner) { 
-                html5QrcodeScanner.stop().catch(e => console.log("Cámara ya estaba detenida.")); 
+                html5QrcodeScanner.stop().catch(e => console.log("Cámara detenida.")); 
             }
         }
     </script>
