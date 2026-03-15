@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="logo.png">
 
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; /* Evita tirones al hacer scroll */ overscroll-behavior-y: contain; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; overscroll-behavior-y: contain; }
         #pantalla-inicio { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
         .logo-app { max-width: 150px; margin-bottom: 10px; border-radius: 10px; }
         
@@ -89,8 +89,8 @@
         let html5QrcodeScanner = null;
         let escaneando = true;
 
-        // AQUÍ ESTÁ EL ENLACE ACTUALIZADO
-        const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQeH1uz_XGb63nej9mz7mAdTuX3ATNLIb0oMEC-fEI9zwFw8T3f_KTEGmS79ajCiA/pub?gid=271283586&single=true&output=csv";
+        // AQUÍ ESTÁ EL ENLACE NUEVO Y LIMPIO
+        const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQeH1uz_XGb63nej9mz7mAdTuX3ATNLIb0oMEC-fEI9zwFw8T3f_KTEGmS79ajCiA/pub?output=csv";
 
         function esDispositivoIOS() {
             return [
