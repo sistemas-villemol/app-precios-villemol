@@ -89,7 +89,6 @@
         let html5QrcodeScanner = null;
         let escaneando = true;
 
-        // TU NUEVO ENLACE PUBLICADO ESTÁ AQUÍ
         const urlGoogleSheets = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYDpYRySOCRNc53NPfTmniUFf9EMfWHC3XQp1B0Y5Guuc7g2bzXlZe2l2x0qFA9S3Cixidw0eJPimM/pub?output=csv";
 
         function esDispositivoIOS() {
@@ -134,7 +133,10 @@
             document.getElementById('mensaje-estado').innerText = "Descargando inventario de Google Sheets...";
             ocultarBotones();
 
-            Papa.parse(urlGoogleSheets, {
+            // TRUCO ANTICACHÉ: Se le suma el milisegundo exacto actual al enlace para forzar la descarga nueva
+            const urlFresca = urlGoogleSheets + "&t=" + new Date().getTime();
+
+            Papa.parse(urlFresca, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
